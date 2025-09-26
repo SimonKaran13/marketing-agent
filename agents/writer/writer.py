@@ -1,8 +1,7 @@
 from strands import Agent, tool
 from strands.models.openai import OpenAIModel
 from strands_tools import calculator, current_time
-from typing import List, Optional
-from prompt.prompts import Prompt
+from prompts.InputPrompt import InputPrompt
 import os
 from dotenv import load_dotenv
 
@@ -114,8 +113,8 @@ class WriterAgent:
             tools=self.tools,
         )
 
-    def invoke(self, prompt_data: Prompt = None, query: str = None):
-        """Invoke the agent with either a Prompt object or a direct query string."""
+    def invoke(self, prompt_data: InputPrompt = None, query: str = None):
+        """Invoke the agent with either an InputPrompt object or a direct query string."""
         try:
             if prompt_data:
                 # Convert prompt data to a query string for the agent
@@ -130,8 +129,8 @@ class WriterAgent:
         except Exception as e:
             return f"Error invoking writer agent: {e}"
 
-    async def stream(self, prompt_data: Prompt = None, query: str = None):
-        """Stream the agent response with either a Prompt object or a direct query string."""
+    async def stream(self, prompt_data: InputPrompt = None, query: str = None):
+        """Stream the agent response with either an InputPrompt object or a direct query string."""
         try:
             if prompt_data:
                 # Convert prompt data to a query string for the agent
@@ -149,8 +148,8 @@ class WriterAgent:
         except Exception as e:
             yield f"We are unable to process your writing request at the moment. Error: {e}"
 
-    def _format_prompt_data_as_query(self, prompt_data: Prompt) -> str:
-        """Format the prompt data as a query string for the agent."""
+    def _format_prompt_data_as_query(self, prompt_data: InputPrompt) -> str:
+        """Format the InputPrompt data as a query string for the agent."""
         query_parts = []
         
         if prompt_data.product_name:
