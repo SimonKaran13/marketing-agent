@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 import sys
 import os
+import time
 from dotenv import load_dotenv
 import json
 import shutil
@@ -18,6 +19,7 @@ import shutil
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from agents.writer.writer import WriterAgent
+from agents.photographer.photographer import GeminiPhotographer, GeminiImage
 from prompts.InputPrompt import InputPrompt
 
 # Load environment variables
@@ -77,13 +79,27 @@ except Exception as e:
     print(f"❌ Failed to initialize WriterAgent: {e}")
     writer_agent = None
 
+# Initialize GeminiPhotographer
+try:
+    gemini_api_key = os.getenv("GEMINI_API_KEY")
+    if not gemini_api_key:
+        print("⚠️ GEMINI_API_KEY not found, photographer will not be available")
+        photographer_agent = None
+    else:
+        photographer_agent = GeminiPhotographer(api_key=gemini_api_key)
+        print("✅ GeminiPhotographer initialized successfully")
+except Exception as e:
+    print(f"❌ Failed to initialize GeminiPhotographer: {e}")
+    photographer_agent = None
+
 @app.get("/")
 async def root():
     """Health check endpoint"""
     return {
         "message": "AgenticMarketers API is running",
         "status": "healthy",
-        "agent_ready": writer_agent is not None
+        "writer_agent_ready": writer_agent is not None,
+        "photographer_agent_ready": photographer_agent is not None
     }
 
 @app.post("/start_workflow", response_model=WorkflowResponse)
@@ -176,11 +192,60 @@ async def start_workflow(
         except (json.JSONDecodeError, AttributeError, KeyError, IndexError) as e:
             caption = str(content_result)
         
-        # Use first uploaded image if available, otherwise use mock
-        if image_paths:
-            # Return the URL to the uploaded image
+        # Generate image using photographer agent or use uploaded image
+        if photographer_agent and image_paths:
+            try:
+                # Load the uploaded image as reference
+                from PIL import Image
+                reference_image = Image.open(image_paths[0])
+                reference_gemini = GeminiImage(reference_image)
+                
+                # Create a prompt for image generation based on form data
+                image_prompt = f"""
+                Create a professional product photo for: {product_name}
+                Description: {product_description}
+                Key features: {product_main_features or 'N/A'}
+                Benefits: {product_benefits or 'N/A'}
+                Target audience: {product_target_audience or 'N/A'}
+                Background scene: {background_scene or 'clean, professional background'}
+                Composition style: {composition_style or 'centered, well-lit'}
+                Lighting preferences: {lighting_preferences or 'soft, even lighting'}
+                Mood: {mood or 'professional and appealing'}
+                Camera setup: {camera_setup or 'professional product photography'}
+                Color palette: {color_palette or 'natural colors'}
+                Additional modifiers: {additional_modifiers or 'high quality, commercial photography'}
+                
+                Generate a high-quality, professional product image that would be suitable for marketing and social media.
+                """
+                
+                # Generate new image using the photographer
+                generated_images = photographer_agent.generate_images(
+                    prompt=image_prompt,
+                    reference_images=[reference_gemini]
+                )
+                
+                if generated_images:
+                    # Save the generated image
+                    generated_image = generated_images[0]
+                    generated_filename = f"generated_{product_name.replace(' ', '_')}_{int(time.time())}.png"
+                    generated_path = os.path.join(UPLOADS_DIR, generated_filename)
+                    generated_image.save(generated_path)
+                    image_url = f"/uploads/{generated_filename}"
+                    print(f"✅ Generated new image: {generated_filename}")
+                else:
+                    # Fallback to uploaded image
+                    image_url = f"/uploads/{os.path.basename(image_paths[0])}"
+                    print("⚠️ No images generated, using uploaded image")
+                    
+            except Exception as e:
+                print(f"❌ Error generating image: {e}")
+                # Fallback to uploaded image
+                image_url = f"/uploads/{os.path.basename(image_paths[0])}"
+        elif image_paths:
+            # Use uploaded image if photographer not available
             image_url = f"/uploads/{os.path.basename(image_paths[0])}"
         else:
+            # Use mock image as last resort
             image_url = "https://via.placeholder.com/400x400/000000/FFFFFF?text=Product+Image"
         
         return WorkflowResponse(
