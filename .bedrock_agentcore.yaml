@@ -1,0 +1,60 @@
+default_agent: marketing_writer_agent
+agents:
+  agentcore_app:
+    name: agentcore_app
+    entrypoint: agentcore_app.py
+    platform: linux/arm64
+    container_runtime: docker
+    aws:
+      execution_role: null
+      execution_role_auto_create: true
+      account: '832232047530'
+      region: us-west-2
+      ecr_repository: null
+      ecr_auto_create: true
+      network_configuration:
+        network_mode: PUBLIC
+      protocol_configuration:
+        server_protocol: HTTP
+      observability:
+        enabled: true
+    bedrock_agentcore:
+      agent_id: null
+      agent_arn: null
+      agent_session_id: null
+    codebuild:
+      project_name: null
+      execution_role: null
+      source_bucket: null
+    authorizer_configuration: null
+    request_header_configuration: null
+    oauth_configuration: null
+  marketing_writer_agent:
+    name: marketing_writer_agent
+    entrypoint: agentcore_app.py
+    platform: linux/arm64
+    container_runtime: docker
+    aws:
+      execution_role: arn:aws:iam::832232047530:role/AmazonBedrockAgentCoreSDKRuntime-us-west-2-d8805de0c2
+      execution_role_auto_create: false
+      account: '832232047530'
+      region: us-west-2
+      ecr_repository: 832232047530.dkr.ecr.us-west-2.amazonaws.com/bedrock-agentcore-marketing_writer_agent
+      ecr_auto_create: false
+      network_configuration:
+        network_mode: PUBLIC
+      protocol_configuration:
+        server_protocol: HTTP
+      observability:
+        enabled: true
+    bedrock_agentcore:
+      agent_id: marketing_writer_agent-CaUEV68qBo
+      agent_arn: arn:aws:bedrock-agentcore:us-west-2:832232047530:runtime/marketing_writer_agent-CaUEV68qBo
+      agent_session_id: 3a22767e-6d92-4f2c-a235-6b2311ce6454
+    codebuild:
+      project_name: bedrock-agentcore-marketing_writer_agent-builder
+      execution_role: arn:aws:iam::832232047530:role/AmazonBedrockAgentCoreSDKCodeBuild-us-west-2-d8805de0c2
+      source_bucket: bedrock-agentcore-codebuild-sources-832232047530-us-west-2
+    authorizer_configuration: null
+    request_header_configuration: null
+    oauth_configuration: null
