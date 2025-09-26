@@ -13,3 +13,4 @@ class Prompt:
     product_pricing_details: Optional[str] = None
     product_pricing_features: Optional[str] = None
     product_pricing_benefits: Optional[str] = None
+    product_target_audience: Optional[str] = None
