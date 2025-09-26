@@ -63,56 +63,59 @@ class WriterAgent:
         model_id: str = "gpt-4o-mini",
         temperature: float = 0.7,
     ):
-        self.system_prompt = (
-            system_prompt
-            if system_prompt
-            else """
-    You are a professional social media content writer specializing in creating engaging, viral-worthy posts across all platforms.
-    
-    You have access to tools to help you create high-quality marketing content:
-    - Calculator: for any calculations needed
-    - Current time: to reference timing in posts
-    - Content analyzer: to analyze your content
-    - Hashtag generator: to create relevant hashtags
-    
-    You will ALWAYS follow these guidelines when creating content:
-    - Create content that is engaging, informative, and aligned with the brand voice
-    - Research thoroughly before writing to ensure accuracy and relevance
-    - Optimize content for the target audience and platform requirements
-    - Always maintain a professional and creative tone
-    - Focus on creating content that drives engagement and achieves marketing objectives
-    - Ensure all content is original and plagiarism-free
-    - Adapt content style and tone based on the target platform and audience
-    """
-        )
+            self.system_prompt = (
+                system_prompt
+                if system_prompt
+                else """
+        You are a professional social media content writer specializing in creating engaging, viral-worthy posts across all platforms.
+        
+        You have access to tools to help you create high-quality marketing content:
+        - Calculator: for any calculations needed
+        - Current time: to reference timing in posts
+        - Content analyzer: to analyze your content
+        - Hashtag generator: to create relevant hashtags
+        
+        You will ALWAYS follow these guidelines when creating content:
+        - Create content that is engaging, informative, and aligned with the brand voice
+        - Research thoroughly before writing to ensure accuracy and relevance
+        - Optimize content for the target audience and platform requirements
+        - Always maintain a professional and creative tone
+        - Focus on creating content that drives engagement and achieves marketing objectives
+        - Ensure all content is original and plagiarism-free
+        - Adapt content style and tone based on the target platform and audience
+        - Use plain text formatting only - NO markdown syntax (no **bold**, no ### headers, no --- separators)
+        - Write in a natural, conversational style suitable for social media
+        - Use emojis and line breaks for visual appeal instead of markdown formatting
+        """
+            )
 
-        # Get OpenAI API key from parameter or environment
-        api_key = openai_api_key or os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            raise ValueError("OpenAI API key is required. Set OPENAI_API_KEY environment variable or pass openai_api_key parameter.")
+            # Get OpenAI API key from parameter or environment
+            api_key = openai_api_key or os.getenv("OPENAI_API_KEY")
+            if not api_key:
+                raise ValueError("OpenAI API key is required. Set OPENAI_API_KEY environment variable or pass openai_api_key parameter.")
 
-        # Create OpenAI model
-        self.openai_model = OpenAIModel(
-            client_args={
-                "api_key": api_key,
-            },
-            model_id=model_id,
-            params={
-                "max_tokens": 2000,
-                "temperature": temperature,
-            }
-        )
+            # Create OpenAI model
+            self.openai_model = OpenAIModel(
+                client_args={
+                    "api_key": api_key,
+                },
+                model_id=model_id,
+                params={
+                    "max_tokens": 2000,
+                    "temperature": temperature,
+                }
+            )
 
-        # Combine built-in tools with custom tools
-        default_tools = [calculator, current_time, content_analyzer, generate_hashtags]
-        self.tools = default_tools + (tools or [])
+            # Combine built-in tools with custom tools
+            default_tools = [calculator, current_time, content_analyzer, generate_hashtags]
+            self.tools = default_tools + (tools or [])
 
-        # Create the Strands Agent with OpenAI model
-        self.agent = Agent(
-            model=self.openai_model,
-            system_prompt=self.system_prompt,
-            tools=self.tools,
-        )
+            # Create the Strands Agent with OpenAI model
+            self.agent = Agent(
+                model=self.openai_model,
+                system_prompt=self.system_prompt,
+                tools=self.tools,
+            )
 
     def invoke(self, prompt_data: InputPrompt = None, query: str = None):
         """Invoke the agent with either an InputPrompt object or a direct query string."""
