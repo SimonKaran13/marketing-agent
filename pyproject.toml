@@ -5,5 +5,8 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "genai>=2.1.0",
+    "google-genai>=1.39.0",
+    "pillow>=11.3.0",
     "strands-agents>=1.9.1",
 ]
