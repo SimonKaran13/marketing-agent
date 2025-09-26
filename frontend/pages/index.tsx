@@ -72,9 +72,6 @@ export default function Home() {
     e.preventDefault()
     setIsGenerating(true)
     
-    // Debug logging
-    console.log('🔍 DEBUG - Form data being sent:', formData)
-    
     try {
       const response = await fetch('http://localhost:8000/start_workflow', {
         method: 'POST',
@@ -84,61 +81,40 @@ export default function Home() {
         body: JSON.stringify(formData)
       })
       
-      console.log('🔍 DEBUG - Response status:', response.status)
-      console.log('🔍 DEBUG - Response headers:', response.headers)
-      
       const result = await response.json()
-      
-      // Debug logging
-      console.log('🔍 DEBUG - Full API response:', result)
-      console.log('🔍 DEBUG - Caption content:', result.caption)
-      console.log('🔍 DEBUG - Image URL:', result.image)
       
       if (result.success) {
         // Parse the caption to extract the actual text
         try {
           let captionText = result.caption
           
-          console.log('🔍 DEBUG - Caption type:', typeof result.caption)
-          console.log('🔍 DEBUG - Caption value:', result.caption)
-          
           // Handle different caption formats
           if (typeof result.caption === 'string') {
             // Try to parse as JSON first
             try {
               const parsedCaption = JSON.parse(result.caption)
-              console.log('🔍 DEBUG - Parsed caption JSON:', parsedCaption)
               
               // Extract text from content[0].text structure
               if (parsedCaption.content && parsedCaption.content[0] && parsedCaption.content[0].text) {
                 captionText = parsedCaption.content[0].text
-                console.log('🔍 DEBUG - Extracted text from JSON:', captionText)
               }
             } catch (jsonError) {
-              console.log('🔍 DEBUG - Not valid JSON, trying to parse Python dict string')
-              
               // Handle Python dictionary string format
               try {
                 // Use eval to parse Python dict (only for trusted content)
                 const parsedCaption = eval('(' + result.caption + ')')
-                console.log('🔍 DEBUG - Parsed Python dict:', parsedCaption)
                 
                 if (parsedCaption.content && parsedCaption.content[0] && parsedCaption.content[0].text) {
                   captionText = parsedCaption.content[0].text
-                  console.log('🔍 DEBUG - Extracted text from Python dict:', captionText)
                 }
               } catch (evalError) {
-                console.log('🔍 DEBUG - Could not parse as Python dict, using as string:', evalError.message)
                 captionText = result.caption
               }
             }
           } else if (typeof result.caption === 'object' && result.caption !== null) {
             // Handle object format directly
-            console.log('🔍 DEBUG - Caption is already an object:', result.caption)
-            
             if (result.caption.content && result.caption.content[0] && result.caption.content[0].text) {
               captionText = result.caption.content[0].text
-              console.log('🔍 DEBUG - Extracted text from object:', captionText)
             }
           }
           
@@ -146,7 +122,6 @@ export default function Home() {
           setGeneratedContent(result)
           setShowPreview(true)
         } catch (parseError) {
-          console.error('🔍 DEBUG - Error processing caption:', parseError)
           setParsedCaption(result.caption)
           setGeneratedContent(result)
           setShowPreview(true)
@@ -155,7 +130,6 @@ export default function Home() {
         alert(`Error: ${result.message}`)
       }
     } catch (error) {
-      console.error('Error:', error)
       alert('Failed to generate content. Please try again.')
     } finally {
       setIsGenerating(false)
