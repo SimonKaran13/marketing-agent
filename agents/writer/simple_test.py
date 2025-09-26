@@ -8,7 +8,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 from agents.writer.writer import WriterAgent
-from prompt.prompts import Prompt
+from prompts.InputPrompt import InputPrompt
 
 
 def main():
@@ -31,10 +31,11 @@ def main():
         result = writer.invoke(query=prompt)
         print(result)
         
-        # Test 2: Using Prompt object
-        print("\n📋 Test 2: Using Prompt object")
+        # Test 2: Using InputPrompt object
+        print("\n📋 Test 2: Using InputPrompt object")
         print("-" * 40)
-        prompt_data = Prompt(
+        prompt_data = InputPrompt(
+            product_images=[],  # Empty list for now
             product_name="EcoClean Laundry Detergent",
             product_description="Eco-friendly laundry detergent made from natural ingredients",
             product_main_features="Plant-based, biodegradable, hypoallergenic",

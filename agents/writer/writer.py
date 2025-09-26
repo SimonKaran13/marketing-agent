@@ -2,6 +2,7 @@ from strands import Agent, tool
 from strands.models.openai import OpenAIModel
 from strands_tools import calculator, current_time
 from prompts.InputPrompt import InputPrompt
+from typing import List, Optional
 import os
 from dotenv import load_dotenv
 
