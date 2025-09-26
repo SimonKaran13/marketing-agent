@@ -13,11 +13,11 @@ import os
 from dotenv import load_dotenv
 import json
 import shutil
+import boto3
 
 # Add the project root to the Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from agents.writer.writer import WriterAgent
 from prompts.InputPrompt import InputPrompt
 
 # Load environment variables
@@ -26,6 +26,8 @@ load_dotenv()
 # Create uploads directory if it doesn't exist
 UPLOADS_DIR = "uploads"
 os.makedirs(UPLOADS_DIR, exist_ok=True)
+AGENT_CORE_ARN = os.getenv("AGENT_CORE_ARN")
+AGENT_CORE_SESSION_ID = os.getenv("AGENT_CORE_SESSION_ID")
 
 app = FastAPI(
     title="AgenticMarketers API",
@@ -69,13 +71,6 @@ class WorkflowResponse(BaseModel):
     caption: Optional[str] = None
     image: Optional[str] = None
 
-# Initialize WriterAgent
-try:
-    writer_agent = WriterAgent()
-    print("✅ WriterAgent initialized successfully")
-except Exception as e:
-    print(f"❌ Failed to initialize WriterAgent: {e}")
-    writer_agent = None
 
 @app.get("/")
 async def root():
@@ -83,7 +78,6 @@ async def root():
     return {
         "message": "AgenticMarketers API is running",
         "status": "healthy",
-        "agent_ready": writer_agent is not None
     }
 
 @app.post("/start_workflow", response_model=WorkflowResponse)
@@ -108,11 +102,6 @@ async def start_workflow(
     Main workflow endpoint that processes form data with file uploads and generates content
     """
     try:
-        if not writer_agent:
-            raise HTTPException(
-                status_code=500, 
-                detail="WriterAgent not initialized. Check OpenAI API key."
-            )
         
         # Process uploaded images
         image_paths = []
@@ -147,6 +136,25 @@ async def start_workflow(
         # Generate content using WriterAgent
         print(f"🚀 Starting workflow for product: {product_name}")
         content_result = writer_agent.invoke(prompt_data=input_prompt)
+        # Generate content using AgentCore
+        print(f"🚀 Starting workflow for product: {request.product_name}")
+        
+        # Create a prompt for the AgentCore agent
+        prompt = f"""
+        Create engaging marketing content for the following product:
+        
+        Product Name: {request.product_name}
+        Description: {request.product_description}
+        Main Features: {request.product_main_features or 'Not specified'}
+        Benefits: {request.product_benefits or 'Not specified'}
+        Use Cases: {request.product_use_cases or 'Not specified'}
+        Pricing: {request.product_pricing or 'Not specified'}
+        Target Audience: {request.product_target_audience or 'Not specified'}
+        
+        Please create a compelling social media caption that highlights the key benefits and features of this product.
+        """
+        
+        content_result = await invoke_agent_agentcore(prompt)
         
         try:
             # Handle different types of content_result
@@ -204,10 +212,35 @@ async def health_check():
     """Detailed health check"""
     return {
         "status": "healthy",
-        "agent_ready": writer_agent is not None,
-        "openai_configured": bool(os.getenv("OPENAI_API_KEY")),
+        "agentcore_configured": bool(AGENT_CORE_ARN and AGENT_CORE_SESSION_ID),
+        "aws_configured": bool(os.getenv("AWS_ACCESS_KEY_ID")),
         "environment": "development"
     }
+
+
+async def invoke_agent_agentcore(prompt: str):
+    """
+    Invoke the AgentCore agent with a dynamic prompt
+    """
+    try:
+        client = boto3.client('bedrock-agentcore', region_name='us-west-2')
+        payload = json.dumps({
+            "input": {"prompt": prompt}
+        })
+
+        response = client.invoke_agent_runtime(
+            agentRuntimeArn=AGENT_CORE_ARN,
+            runtimeSessionId=AGENT_CORE_SESSION_ID,
+            payload=payload,
+            qualifier="DEFAULT"
+        )
+        response_body = response['response'].read()
+        response_data = json.loads(response_body)
+        print("Agent Response:", response_data)
+        return response_data
+    except Exception as e:
+        print(f"❌ AgentCore invocation error: {e}")
+        raise e
 
 if __name__ == "__main__":
     import uvicorn
