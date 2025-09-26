@@ -3,14 +3,16 @@
 FastAPI backend for AgenticMarketers
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 import sys
 import os
 from dotenv import load_dotenv
 import json
+import shutil
 
 # Add the project root to the Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -21,11 +23,18 @@ from prompts.InputPrompt import InputPrompt
 # Load environment variables
 load_dotenv()
 
+# Create uploads directory if it doesn't exist
+UPLOADS_DIR = "uploads"
+os.makedirs(UPLOADS_DIR, exist_ok=True)
+
 app = FastAPI(
     title="AgenticMarketers API",
     description="AI-powered marketing content generation",
     version="1.0.0"
 )
+
+# Mount static files for serving uploaded images
+app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 
 # Configure CORS for development
 app.add_middleware(
@@ -78,9 +87,25 @@ async def root():
     }
 
 @app.post("/start_workflow", response_model=WorkflowResponse)
-async def start_workflow(request: WorkflowRequest):
+async def start_workflow(
+    product_images: List[UploadFile] = File(default=[]),
+    product_name: str = Form(...),
+    product_description: str = Form(...),
+    product_main_features: Optional[str] = Form(None),
+    product_benefits: Optional[str] = Form(None),
+    product_use_cases: Optional[str] = Form(None),
+    product_pricing: Optional[str] = Form(None),
+    product_target_audience: Optional[str] = Form(None),
+    background_scene: Optional[str] = Form(None),
+    composition_style: Optional[str] = Form(None),
+    lighting_preferences: Optional[str] = Form(None),
+    mood: Optional[str] = Form(None),
+    camera_setup: Optional[str] = Form(None),
+    color_palette: Optional[str] = Form(None),
+    additional_modifiers: Optional[str] = Form(None)
+):
     """
-    Main workflow endpoint that processes the form data and generates content
+    Main workflow endpoint that processes form data with file uploads and generates content
     """
     try:
         if not writer_agent:
@@ -89,91 +114,80 @@ async def start_workflow(request: WorkflowRequest):
                 detail="WriterAgent not initialized. Check OpenAI API key."
             )
         
-        # Convert request to InputPrompt object
+        # Process uploaded images
+        image_paths = []
+        for image in product_images:
+            if image.filename:
+                # Save uploaded file to uploads directory
+                file_path = os.path.join(UPLOADS_DIR, image.filename)
+                with open(file_path, "wb") as buffer:
+                    content = await image.read()
+                    buffer.write(content)
+                image_paths.append(file_path)
+        
+        # Convert form data to InputPrompt object
         input_prompt = InputPrompt(
-            product_images=request.product_images,
-            product_name=request.product_name,
-            product_description=request.product_description,
-            product_main_features=request.product_main_features,
-            product_benefits=request.product_benefits,
-            product_use_cases=request.product_use_cases,
-            product_pricing=request.product_pricing,
-            product_target_audience=request.product_target_audience,
-            background_scene=request.background_scene,
-            composition_style=request.composition_style,
-            lighting_preferences=request.lighting_preferences,
-            mood=request.mood,
-            camera_setup=request.camera_setup,
-            color_palette=request.color_palette,
-            additional_modifiers=request.additional_modifiers
+            product_images=image_paths,
+            product_name=product_name,
+            product_description=product_description,
+            product_main_features=product_main_features,
+            product_benefits=product_benefits,
+            product_use_cases=product_use_cases,
+            product_pricing=product_pricing,
+            product_target_audience=product_target_audience,
+            background_scene=background_scene,
+            composition_style=composition_style,
+            lighting_preferences=lighting_preferences,
+            mood=mood,
+            camera_setup=camera_setup,
+            color_palette=color_palette,
+            additional_modifiers=additional_modifiers
         )
         
         # Generate content using WriterAgent
-        print(f"🚀 Starting workflow for product: {request.product_name}")
+        print(f"🚀 Starting workflow for product: {product_name}")
         content_result = writer_agent.invoke(prompt_data=input_prompt)
-        
-        # DEBUG: Print the raw result
-        print(f"🔍 DEBUG - Raw content_result type: {type(content_result)}")
-        print(f"🔍 DEBUG - Raw content_result: {content_result}")
-        print(f"🔍 DEBUG - Raw content_result repr: {repr(content_result)}")
         
         try:
             # Handle different types of content_result
             if isinstance(content_result, str):
-                print("🔍 DEBUG - Parsing as JSON string")
                 parsed_result = json.loads(content_result)
             elif isinstance(content_result, dict):
-                print("🔍 DEBUG - content_result is already a dict, using as-is")
                 parsed_result = content_result
             else:
-                print("🔍 DEBUG - Converting to dict or using as-is")
                 parsed_result = content_result
-            
-            print(f"🔍 DEBUG - Parsed result type: {type(parsed_result)}")
-            print(f"🔍 DEBUG - Parsed result: {parsed_result}")
             
             # Handle the specific structure: {'role': 'assistant', 'content': [{'text': '...'}]}
             if isinstance(parsed_result, dict) and 'content' in parsed_result:
-                print("🔍 DEBUG - Found 'content' key in parsed_result")
                 content_list = parsed_result['content']
-                print(f"🔍 DEBUG - Content list type: {type(content_list)}")
-                print(f"🔍 DEBUG - Content list: {content_list}")
                 
                 if isinstance(content_list, list) and len(content_list) > 0:
-                    print(f"🔍 DEBUG - Content list has {len(content_list)} items")
-                    # Get the first item and extract text
                     first_item = content_list[0]
-                    print(f"🔍 DEBUG - First item type: {type(first_item)}")
-                    print(f"🔍 DEBUG - First item: {first_item}")
                     
                     if isinstance(first_item, dict) and 'text' in first_item:
                         caption = first_item['text']
-                        print(f"🔍 DEBUG - Extracted text: {caption[:100]}...")
                     else:
                         caption = str(first_item)
-                        print(f"🔍 DEBUG - Using first_item as string: {caption[:100]}...")
                 else:
                     caption = str(content_list)
-                    print(f"🔍 DEBUG - Using content_list as string: {caption[:100]}...")
             else:
-                # Fallback to string representation
                 caption = str(content_result)
-                print(f"🔍 DEBUG - Fallback to string representation: {caption[:100]}...")
                 
         except (json.JSONDecodeError, AttributeError, KeyError, IndexError) as e:
-            # If JSON parsing fails, use string representation
-            print(f"🔍 DEBUG - Exception occurred: {e}")
             caption = str(content_result)
-            print(f"🔍 DEBUG - Using content_result as string: {caption[:100]}...")
         
-        # Mock image URL for now
-        mock_image = "https://via.placeholder.com/400x400/000000/FFFFFF?text=Product+Image"
+        # Use first uploaded image if available, otherwise use mock
+        if image_paths:
+            # Return the URL to the uploaded image
+            image_url = f"/uploads/{os.path.basename(image_paths[0])}"
+        else:
+            image_url = "https://via.placeholder.com/400x400/000000/FFFFFF?text=Product+Image"
         
         return WorkflowResponse(
             success=True,
             message="Content generated successfully!",
             caption=caption,
-            image=mock_image
+            image=image_url
         )
         
     except Exception as e:
