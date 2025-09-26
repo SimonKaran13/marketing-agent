@@ -16,4 +16,5 @@ dependencies = [
     "bedrock-agentcore>=0.1.5",
     "bedrock-agentcore-starter-toolkit>=0.1.14",
     "pillow-heif>=1.1.0",
+    "fastapi>=0.117.1",
 ]
